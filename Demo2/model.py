@@ -84,9 +84,9 @@ class Generator(nn.Module):
 
     def forward(self, x):
 
-        x = F.relu(self.encoder_bn1(self.encoder_fc1(x)))
-        x = F.relu(self.encoder_bn2(self.encoder_fc2(x)))
-        x = F.sigmoid(self.encoder_fc3(x))
+        x = torch.relu(self.encoder_bn1(self.encoder_fc1(x)))
+        x = torch.relu(self.encoder_bn2(self.encoder_fc2(x)))
+        x = torch.sigmoid(self.encoder_fc3(x))
 
         x = x.permute(0, 2, 1).contiguous()
         x = self.attention_1(x)
@@ -95,11 +95,16 @@ class Generator(nn.Module):
         x = self.attention_4(x)
         x = x.permute(0, 2, 1).contiguous() #维度变换后，使用该函数，方可view对维度进行变形
 
-        out=F.relu(self.decoder_bn4(self.decoder_fc4(x)))
-        out=F.relu(self.decoder_fc5(out))
+        out = torch.relu(self.decoder_bn4(self.decoder_fc4(x)))
+        out = torch.relu(self.decoder_fc5(out))
 
-        cls = F.sigmoid(self.fc6(out))
-        geo = F.sigmoid(self.fc7(out))
+        
+        cls = torch.sigmoid(self.fc6(out))
+        #cls = torch.nn.LeakyReLU(self.fc6(out))
+        #cls = torch.relu(self.fc6(out))
+        geo = torch.sigmoid(self.fc7(out))
+        #geo = torch.nn.LeakyReLU(self.fc7(out))
+        #geo = torch.relu(self.fc7(out))
         output = torch.cat((cls, geo), 2)
         return output
 
@@ -136,11 +141,11 @@ class Discriminator(nn.Module):
         # Passing through conv layers
         x = torch.nn.functional.max_pool2d(F.relu(self.conv1_bn(self.conv1(x_wf))), 2, 2)
         x = torch.nn.functional.max_pool2d(F.relu(self.conv2_bn(self.conv2(x))), 2, 2)
-        x = F.relu(self.conv3_bn(self.conv3(x)))
+        x = torch.relu(self.conv3_bn(self.conv3(x)))
 
         # Flattening and passing through FC Layers
         x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
+        x = torch.relu(self.fc1(x))
         x = torch.sigmoid(self.fc2(x))
 
         return x
