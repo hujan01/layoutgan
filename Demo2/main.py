@@ -54,13 +54,13 @@ def main():
     element_num = 128
     cls_num = 1  
     geo_num = 2
-    batch_size = 100
-    lr = 0.0002
-    num_epochs = 100
+    batch_size = 256
+    lr = 0.002
+    num_epochs = 20
 
     #优化器参数
-    beta1 = 0.99
-    beta2 = 0.95
+    beta1 = 0.5
+    beta2 = 0.999
 
     # 选择运行环境
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -73,12 +73,12 @@ def main():
 
     # 加载模型
     print("load model")
-    gen = model.Generator(element_num, geo_num,  cls_num).to(device)
+    gen = model.Generator(element_num, geo_num, cls_num).to(device)
     dis = model.Discriminator(batch_size).to(device)
 
     # 定义优化器
     print("Initialize optimizers")
-    g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
+    g_optimizer = optim.Adam(gen.parameters(), lr/10, (beta1, beta2))
     d_optimizer = optim.Adam(dis.parameters(), lr/10, (beta1, beta2))
 
     # 设置为训练模式
@@ -87,6 +87,7 @@ def main():
 
     # 开始训练
     for epoch in range(1, num_epochs+1):
+        scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=2, gamma=0.1)
         for batch_idx, real_images in enumerate(train_loader, 1):
 
             real_images = real_images.to(device) 
@@ -131,11 +132,11 @@ def main():
             g_optimizer.step()
             print("batch train time {:.3f}".format(time.time()-start))
             #每迭代2次保存结果
-            if batch_idx % 2 == 0: 
+            if batch_idx % 200 == 0: 
                 #保存在文件夹中
                 result_path = 'result'
                 os.makedirs(result_path, exist_ok=True)
-                test_samples = 4
+                test_samples = 9
                 #随机初始化
                 z_cls = torch.FloatTensor(test_samples, element_num, cls_num).uniform_(0, 1) #均匀分布
                 z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.5) #正态分布
