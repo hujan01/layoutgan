@@ -18,7 +18,7 @@ from tensorboardX import SummaryWriter
 class Attention(nn.Module):
     def __init__(self, in_channels, out_channels, dimension=1, sub_sample=False, bn=True, generate=True):
         super(Attention, self).__init__()
-        self.inter_channels = in_channels//2 if in_channels>1 else 1
+        self.in_channels= in_channels//2 if in_channels>1 else 1
         self.generate = generate
         self.out_channels = out_channels
         self.g = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
