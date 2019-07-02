@@ -21,11 +21,12 @@ class Attention(nn.Module):
         if out_channels is None:
             self.out_channels = in_channels//2 if in_channels>1 else 1
         self.generate = generate
-        self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
+        self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0) #U
         self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),
                                  nn.BatchNorm1d(in_channels))
         nn.init.constant(self.W[1].weight, 0) #这里不对W的权重进行更新
         nn.init.constant(self.W[1].bias, 0)
+
         self.theta = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
         self.phi = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
 
@@ -37,17 +38,19 @@ class Attention(nn.Module):
         batch_size = x.size(0) #批次大小
         g_x = self.g(x).view(batch_size, self.out_channels, -1)
         g_x = g_x.permute(0, 2, 1)
-        theta_x = self.theta(x).view(batch_size, self.out_channels, -1)
+
+        theta_x = self.theta(x).view(batch_size, self.out_channels, -1)  
         theta_x = theta_x.permute(0, 2, 1)
         phi_x = self.phi(x).view(batch_size, self.out_channels, -1)
-        f = torch.matmul(theta_x, phi_x)
+        f = torch.matmul(theta_x, phi_x) #计算H 
+ 
         N = f.size(-1)
         f_div_c = f/N
         y = torch.matmul(f_div_c, g_x)
         y = y.permute(0,2,1).contiguous()
         y = y.view(batch_size, self.out_channels, *x.size()[2:])
         W_y = self.W(y)
-        if self.generate:
+        if self.generate: 
             output = W_y + x
         else:
             output=W_y

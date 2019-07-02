@@ -121,6 +121,12 @@ def main():
         D_losses, G_losses = [], []
         epoch_start_time = time.time()
         for batch_idx, real_images in enumerate(train_loader, 1):
+            
+            #输出真实图像，观察提取像素点效果,这里只显示第一个批次中的9张
+            if batch_idx == 1:
+                imgs = real_images[:9, :, :]
+                real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
+                save_image(real_imgs, 'real_img.png', nrow=3)
 
             real_images = real_images.to(device) 
             batch_size = real_images.size(0)
