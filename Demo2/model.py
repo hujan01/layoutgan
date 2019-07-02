@@ -16,18 +16,18 @@ import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 
 class Attention(nn.Module):
-    def __init__(self, in_channels, out_channels, dimension=1, sub_sample=False, bn=True, generate=True):
+    def __init__(self, in_channels, out_channels=None, dimension=1, sub_sample=False, bn=True, generate=True):
         super(Attention, self).__init__()
-        self.in_channels= in_channels//2 if in_channels>1 else 1
+        if out_channels is None:
+            self.out_channels = in_channels//2 if in_channels>1 else 1
         self.generate = generate
-        self.out_channels = out_channels
-        self.g = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
-        self.W = nn.Sequential(nn.Conv1d(out_channels, in_channels, kernel_size=1, stride=1, padding=0),
+        self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
+        self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),
                                  nn.BatchNorm1d(in_channels))
         nn.init.constant(self.W[1].weight, 0) #这里不对W的权重进行更新
         nn.init.constant(self.W[1].bias, 0)
-        self.theta = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
-        self.phi = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
+        self.theta = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
+        self.phi = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
 
         if sub_sample: #是否需要下采样，这里会用到最大池化
             self.g=nn.Sequential(self.g, nn.MaxPool1d)
@@ -68,10 +68,10 @@ class Generator(nn.Module):
         self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
 
         #stacked relation 
-        self.attention_1 = Attention(self.feature_size*2*2, 1)
-        self.attention_2 = Attention(self.feature_size*2*2, 1)
-        self.attention_3 = Attention(self.feature_size*2*2, 1)
-        self.attention_4 = Attention(self.feature_size*2*2, 1)
+        self.attention_1 = Attention(self.feature_size*2*2)
+        self.attention_2 = Attention(self.feature_size*2*2)
+        self.attention_3 = Attention(self.feature_size*2*2)
+        self.attention_4 = Attention(self.feature_size*2*2)
 
         #Decoder
         self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2)
