@@ -138,8 +138,8 @@ def main():
             d_real_loss = real_loss(D_real, device) #计算真实图像损失
 
             # 随机初始化类别和位置信息
-            z_cls = torch.FloatTensor(batch_size, element_num, geo_num).uniform_(0, 1) #均匀分布
-            z_geo = torch.FloatTensor(batch_size, element_num, cls_num).normal_(0.5, 0.5) #正态分布
+            z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
+            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5) #正态分布
             z = torch.cat((z_cls, z_geo), 2).to(device)
             
             fake_images_d = gen(z) #生成fake图像
