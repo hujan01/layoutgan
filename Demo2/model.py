@@ -154,6 +154,7 @@ class Discriminator(nn.Module):
         return x
 
     def wireframe_rendering(self, x_in):
+        """ 线框渲染 """
         def k(x):
             return torch.relu(1-torch.abs(x))
 

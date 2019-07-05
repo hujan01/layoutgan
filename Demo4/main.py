@@ -62,7 +62,6 @@ def show_lossHist(hist, path=None):
     plt.plot(x, y2, label='G_loss')
     plt.xlabel('epoch')
     plt.ylabel('loss')
-
     plt.savefig(os.path.join(path, fname))
     
 def main():
@@ -70,9 +69,9 @@ def main():
     element_num = 128
     cls_num = 1  
     geo_num = 2
-    batch_size = 256
-    lr = 0.002
-    num_epochs = 10
+    batch_size = 128
+    lr = 0.0002
+    num_epochs = 100
 
     #优化器参数
     beta1 = 0.5
@@ -85,7 +84,7 @@ def main():
     # 加载数据集
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])
+        #transforms.Normalize(mean=[0.5], std=[0.5])
     ])
     _ = datasets.MNIST(root='data', train=True, download=True, transform=transforms)
     train_data = MNISTLayoutDataset('data')
@@ -100,7 +99,7 @@ def main():
     print("Initialize optimizers")
     g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
     #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr/10, (beta1, beta2))
+    d_optimizer = optim.Adam(dis.parameters(), lr, (beta1, beta2))
     #d_optimizer = optim.SGD(dis.parameters(), lr/10)
 
     # 设置为训练模式
@@ -124,9 +123,9 @@ def main():
             
             #输出真实图像，观察提取像素点效果,这里只显示第一个批次中的9张
             if batch_idx == 1:
-                imgs = real_images[:9, :, :]
+                imgs = real_images[:64, :, :]
                 real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
-                save_image(real_imgs, 'real_img.png', nrow=3)
+                save_image(real_imgs, 'real_img.png', nrow=8)
 
             real_images = real_images.to(device) 
             batch_size = real_images.size(0)
@@ -176,14 +175,15 @@ def main():
         result_path = 'result_image'
         if not os.path.isdir(result_path):
             os.mkdir(result_path)
-        test_samples = 9
+        #测试部分
+        test_samples = 64
         z_cls = torch.FloatTensor(test_samples, element_num, cls_num).uniform_(0, 1) #均匀分布
         z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.5) #正态分布
         z = torch.cat((z_cls, z_geo), 2).to(device)
 
         generated_images = gen(z)
         generated_images = points_to_image(generated_images).view(-1, 1, 28, 28)
-        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=3)
+        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=8)
 
         loss_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
         loss_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))

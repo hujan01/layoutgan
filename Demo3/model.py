@@ -21,14 +21,11 @@ class Attention(nn.Module):
         if out_channels is None:
             self.out_channels = in_channels//2 if in_channels>1 else 1
         self.generate = generate
-        self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0) #U
-        self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),
-                                 nn.BatchNorm1d(in_channels))
-        nn.init.constant(self.W[1].weight, 0) #这里不对W的权重进行更新
-        nn.init.constant(self.W[1].bias, 0)
+        self.g = nn.Linear(in_channels, in_channels) #U
+        self.W = nn.Linear(in_channels, in_channels)
 
-        self.theta = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
-        self.phi = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
+        self.theta = nn.Linear(in_channels, in_channels)
+        self.phi = nn.Linear(in_channels, in_channels)
 
         if sub_sample: #是否需要下采样，这里会用到最大池化
             self.g=nn.Sequential(self.g, nn.MaxPool1d)
@@ -36,20 +33,17 @@ class Attention(nn.Module):
 
     def forward(self, x):
         batch_size = x.size(0) #批次大小
-        g_x = self.g(x).view(batch_size, self.out_channels, -1)
-        g_x = g_x.permute(0, 2, 1)
-
-        theta_x = self.theta(x).view(batch_size, self.out_channels, -1)  
-        theta_x = theta_x.permute(0, 2, 1)
-        phi_x = self.phi(x).view(batch_size, self.out_channels, -1)
-        f = torch.matmul(theta_x, phi_x) #计算H 
+        g_x = self.g(x) #256,128,12
+        
+        theta_x = self.theta(x).permute(0, 2, 1) #256, 12, 128
+        phi_x = self.phi(x) #256,128,12
+        f = torch.matmul(phi_x, theta_x) #计算H 256, 128, 128
  
-        N = f.size(-1)
+        N = f.size(-1) #128
         f_div_c = f/N
-        y = torch.matmul(f_div_c, g_x)
-        y = y.permute(0,2,1).contiguous()
-        y = y.view(batch_size, self.out_channels, *x.size()[2:])
-        W_y = self.W(y)
+        y = torch.matmul(f_div_c, g_x) # 256, 128, 12 计算H*U
+
+        W_y = self.W(y)  #256,128,12
         if self.generate: 
             output = W_y + x
         else:
@@ -89,19 +83,16 @@ class Generator(nn.Module):
 
         x = torch.relu(self.encoder_bn1(self.encoder_fc1(x)))
         x = torch.relu(self.encoder_bn2(self.encoder_fc2(x)))
-        x = torch.sigmoid(self.encoder_fc3(x))
+        x = torch.sigmoid(self.encoder_fc3(x)) #(256,128,12)
 
-        x = x.permute(0, 2, 1).contiguous()
         x = self.attention_1(x)
         x = self.attention_2(x)
         x = self.attention_3(x)
         x = self.attention_4(x)
-        x = x.permute(0, 2, 1).contiguous() #维度变换后，使用该函数，方可view对维度进行变形
-
+    
         out = torch.relu(self.decoder_bn4(self.decoder_fc4(x)))
         out = torch.relu(self.decoder_fc5(out))
 
-        
         cls = torch.sigmoid(self.fc6(out))
         #cls = torch.nn.LeakyReLU(self.fc6(out))
         #cls = torch.relu(self.fc6(out))

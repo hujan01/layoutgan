@@ -71,11 +71,11 @@ def main():
     cls_num = 1  
     geo_num = 2
     batch_size = 256
-    lr = 0.002
+    lr = 0.0002
     num_epochs = 10
 
     #优化器参数
-    beta1 = 0.5
+    beta1 = 0.6
     beta2 = 0.999
 
     # 选择运行环境
@@ -112,21 +112,21 @@ def main():
     loss_hist['G_losses'] = []
     loss_hist['per_epoch_times'] = []
     loss_hist['total_times'] = []
+
     # 开始训练
     print('*****************************')
     print('start train!!!')
     start_time = time.time()
     for epoch in range(num_epochs):
-        scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=2, gamma=0.1)
+        #scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=2, gamma=0.1)
         D_losses, G_losses = [], []
         epoch_start_time = time.time()
         for batch_idx, real_images in enumerate(train_loader, 1):
-            
-            #输出真实图像，观察提取像素点效果,这里只显示第一个批次中的9张
+            #输出真实图像，观察提取像素点效果,这里只显示第一个批次
             if batch_idx == 1:
-                imgs = real_images[:9, :, :]
+                imgs = real_images[:64, :, :]
                 real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
-                save_image(real_imgs, 'real_img.png', nrow=3)
+                save_image(real_imgs, 'real_img.png', nrow=8)
 
             real_images = real_images.to(device) 
             batch_size = real_images.size(0)
@@ -173,17 +173,18 @@ def main():
         per_epoch_time = epoch_end_time - epoch_start_time
         print("[{}/{}] --time: {:.2f}, d_loss: {:.6f}, g_loss: {:.6f}".format(epoch+1, \
                                                                             num_epochs, per_epoch_time, d_loss, g_loss))
+        #测试部分
         result_path = 'result_image'
         if not os.path.isdir(result_path):
             os.mkdir(result_path)
-        test_samples = 9
+        test_samples = 64
         z_cls = torch.FloatTensor(test_samples, element_num, cls_num).uniform_(0, 1) #均匀分布
         z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.5) #正态分布
         z = torch.cat((z_cls, z_geo), 2).to(device)
 
         generated_images = gen(z)
         generated_images = points_to_image(generated_images).view(-1, 1, 28, 28)
-        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=3)
+        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=8)
 
         loss_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
         loss_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
