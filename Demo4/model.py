@@ -1,0 +1,168 @@
+""" 添加attention模块 """
+import os
+import random
+
+import numpy as np 
+import torch
+import torch.nn as nn
+import torch.nn.parallel
+import torch.backends.cudnn as cudnn
+import torch.optim as optim
+import torch.nn.functional as F
+import torch.utils.data
+import torchvision.datasets as dset
+import torchvision.transforms as transforms
+import torchvision.utils as vutils
+from tensorboardX import SummaryWriter
+
+class Attention(nn.Module):
+    def __init__(self, in_channels, out_channels=None, dimension=1, sub_sample=False, bn=True, generate=True):
+        super(Attention, self).__init__()
+        if out_channels is None:
+            self.out_channels = in_channels//2 if in_channels>1 else 1
+        self.generate = generate
+        self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0) #U
+        self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),
+                                 nn.BatchNorm1d(in_channels))
+        nn.init.constant(self.W[1].weight, 0) #这里不对W的权重进行更新
+        nn.init.constant(self.W[1].bias, 0)
+
+        self.theta = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
+        self.phi = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
+
+        if sub_sample: #是否需要下采样，这里会用到最大池化
+            self.g=nn.Sequential(self.g, nn.MaxPool1d)
+            self.phi=nn.Sequential(self.phi, nn.MaxPool1d)
+
+    def forward(self, x):
+        batch_size = x.size(0) #批次大小
+        g_x = self.g(x).view(batch_size, self.out_channels, -1)
+        g_x = g_x.permute(0, 2, 1)
+
+        theta_x = self.theta(x).view(batch_size, self.out_channels, -1)  
+        theta_x = theta_x.permute(0, 2, 1)
+        phi_x = self.phi(x).view(batch_size, self.out_channels, -1)
+        f = torch.matmul(theta_x, phi_x) #计算H 
+ 
+        N = f.size(-1)
+        f_div_c = f/N
+        y = torch.matmul(f_div_c, g_x)
+        y = y.permute(0,2,1).contiguous()
+        y = y.view(batch_size, self.out_channels, *x.size()[2:])
+        W_y = self.W(y)
+        if self.generate: 
+            output = W_y + x
+        else:
+            output=W_y
+        return output
+
+class Generator(nn.Module):
+    def __init__(self, num_elements, geo_num, cls_num): #位置个数，元素个数
+        super(Generator, self).__init__()
+        self.geo_num = geo_num
+        self.cls_num = cls_num
+        self.feature_size = geo_num + cls_num
+
+        #Encoder
+        self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2)
+        self.encoder_bn1 = nn.BatchNorm1d(num_elements)  
+        self.encoder_fc2 = nn.Linear(self.feature_size*2, self.feature_size*2*2)
+        self.encoder_bn2 = nn.BatchNorm1d(num_elements)
+        self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
+
+        #stacked relation 
+        self.attention_1 = Attention(self.feature_size*2*2)
+        self.attention_2 = Attention(self.feature_size*2*2)
+        self.attention_3 = Attention(self.feature_size*2*2)
+        self.attention_4 = Attention(self.feature_size*2*2)
+
+        #Decoder
+        self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2)
+        self.decoder_bn4 = nn.BatchNorm1d(num_elements)
+        self.decoder_fc5 = nn.Linear(self.feature_size*2, self.feature_size)
+
+        #branch
+        self.fc6 = nn.Linear(self.feature_size, cls_num)
+        self.fc7 = nn.Linear(self.feature_size, geo_num)
+
+    def forward(self, x):
+
+        x = torch.relu(self.encoder_bn1(self.encoder_fc1(x)))
+        x = torch.relu(self.encoder_bn2(self.encoder_fc2(x)))
+        x = torch.sigmoid(self.encoder_fc3(x))
+
+        x = x.permute(0, 2, 1).contiguous()
+        x = self.attention_1(x)
+        x = self.attention_2(x)
+        x = self.attention_3(x)
+        x = self.attention_4(x)
+        x = x.permute(0, 2, 1).contiguous() #维度变换后，使用该函数，方可view对维度进行变形
+
+        out = torch.relu(self.decoder_bn4(self.decoder_fc4(x)))
+        out = torch.relu(self.decoder_fc5(out))
+
+        
+        cls = torch.sigmoid(self.fc6(out))
+        #cls = torch.nn.LeakyReLU(self.fc6(out))
+        #cls = torch.relu(self.fc6(out))
+        geo = torch.sigmoid(self.fc7(out))
+        #geo = torch.nn.LeakyReLU(self.fc7(out))
+        #geo = torch.relu(self.fc7(out))
+        output = torch.cat((cls, geo), 2)
+        return output
+
+#判别器
+class Discriminator(nn.Module):
+    def __init__(self, batch_size, geo_num, cls_num, num_elements):
+        super(Discriminator, self).__init__()
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.batch_size = batch_size
+        self.geo_num = geo_num
+        self.cls_num = cls_num
+        self.feature_size = geo_num + cls_num
+
+        # Encode
+        self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2)
+        self.encoder_bn1 = nn.BatchNorm1d(num_elements)  
+        self.encoder_fc2 = nn.Linear(self.feature_size*2, self.feature_size*2*2)
+        self.encoder_bn2 = nn.BatchNorm1d(num_elements)
+        self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
+
+        # simplified relation
+        self.attention_1 = Attention(self.feature_size*2*2,generate=False)
+        self.attention_2 = Attention(self.feature_size*2*2,generate=False)
+        self.attention_3 = Attention(self.feature_size*2*2,generate=False)
+        self.attention_4 = Attention(self.feature_size*2*2,generate=False)
+        
+        #max-pooling
+        self.g = nn.MaxPool1d(self.feature_size*2*2-1)
+
+        # Decode
+        self.decoder_fc4 = nn.Linear(num_elements, 64)
+        self.decoder_bn4 = nn.BatchNorm1d(64)
+        self.decoder_fc5 = nn.Linear(64, 1)
+
+
+    def forward(self, x_in):
+        
+        x = torch.relu(self.encoder_bn1(self.encoder_fc1(x_in)))
+        x = torch.relu(self.encoder_bn2(self.encoder_fc2(x)))
+        x = torch.sigmoid(self.encoder_fc3(x))
+
+        x = x.permute(0, 2, 1).contiguous()
+        x = self.attention_1(x)
+        x = self.attention_2(x)
+        x = self.attention_3(x)
+        x = self.attention_4(x)
+        x = x.permute(0, 2, 1).contiguous()
+
+        x = self.g(x)
+        x = x.view(x.size(0),128)
+        #x = x.permute(0, 2, 1).contiguous()
+
+        out = torch.relu(self.decoder_bn4(self.decoder_fc4(x)))
+        out = torch.relu(self.decoder_fc5(out))
+        x = torch.sigmoid(out)
+
+        return x
