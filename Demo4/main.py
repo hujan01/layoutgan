@@ -84,7 +84,7 @@ def main():
     # 加载数据集
     transform = transforms.Compose([
         transforms.ToTensor(),
-        #transforms.Normalize(mean=[0.5], std=[0.5])
+        transforms.Normalize(mean=[0.5], std=[0.5])
     ])
     _ = datasets.MNIST(root='data', train=True, download=True, transform=transforms)
     train_data = MNISTLayoutDataset('data')
@@ -94,12 +94,13 @@ def main():
     print("load model")
     gen = model.Generator(element_num, geo_num, cls_num).to(device)
     dis = model.Discriminator(batch_size, geo_num, cls_num, element_num).to(device)
-
+    # gen.initialize_weights()
+    # dis.initialize_weights()
     # 定义优化器
     print("Initialize optimizers")
     g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
     #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr, (beta1, beta2))
+    d_optimizer = optim.Adam(dis.parameters(), lr/10, (beta1, beta2))
     #d_optimizer = optim.SGD(dis.parameters(), lr/10)
 
     # 设置为训练模式
