@@ -6,7 +6,7 @@ import torch.utils.data as data
 from torchvision import datasets
 
 class MNISTLayoutDataset(data.Dataset):
-    def __init__(self, path, element_num=128, gt_thresh=200):
+    def __init__(self, path, element_num=128, gt_thresh=10):
         super(MNISTLayoutDataset, self).__init__()
         self.train_data= torch.load(path + '/MNIST/processed/training.pt')[0]
         self.element_num = element_num

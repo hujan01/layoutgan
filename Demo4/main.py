@@ -139,7 +139,21 @@ def main():
 
             # 随机初始化类别和位置信息
             z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5) #正态分布
+            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.25) #正态分布
+
+            #测试初始图片
+            plt.figure()
+            z_geo = z_geo * 28
+            c = np.zeros((28,28))
+            x1 = z_geo[0]
+            for i in x1:
+                x = int(i[0])
+                y = int(i[1])
+                x, y = min(x, 27), min(y, 27)
+                c[x,y] = 255
+            plt.imshow(c,cmap="gray")
+            plt.show()
+            
             z = torch.cat((z_cls, z_geo), 2).to(device)
             
             fake_images_d = gen(z) #生成fake图像
