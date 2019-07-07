@@ -16,6 +16,10 @@ import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 
 
+def normal_init(m, mean, std):
+    if isinstance(m, nn.Linear):
+        m.weight.data.normal_(mean, std)
+        m.bias.data.zero_()
 
 class Attention(nn.Module):
     def __init__(self, in_channels, out_channels=None, dimension=1, sub_sample=False, bn=True, generate=True):
@@ -38,6 +42,7 @@ class Attention(nn.Module):
         if sub_sample: #是否需要下采样，这里会用到最大池化
             self.g=nn.Sequential(self.g, nn.MaxPool1d)
             self.phi=nn.Sequential(self.phi, nn.MaxPool1d)
+
 
     def forward(self, x): #x: (256, 128, 12)
         batch_size = x.size(0) #批次大小
@@ -90,18 +95,9 @@ class Generator(nn.Module):
         self.fc6 = nn.Linear(self.feature_size, cls_num)
         self.fc7 = nn.Linear(self.feature_size, geo_num)
 
-    # def initialize_weights(self):
-    #     for m in self.modules():
-    #         if isinstance(m, nn.Conv1d):
-    #             m.weight.data.normal_(0, 0.02)
-    #             if m.bias is not None:
-    #                 m.bias.data.zero_()
-    #         elif isinstance(m, nn.BatchNorm1d):
-    #             m.weight.data.fill_(1)
-    #             m.bias.data.zero_()
-    #         elif isinstance(m, nn.Linear):
-    #             m.weight.data.normal_(0, 0.01)
-    #             m.bias.data.zero_()
+    def weight_init(self, mean, std):
+        for m in self._modules:
+            normal_init(self._modules[m], mean, std)
 
     def forward(self, x):
 
@@ -159,7 +155,10 @@ class Discriminator(nn.Module):
         # Decode
         self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2, bias=False)
         self.decoder_fc5 = nn.Linear(self.feature_size*2, 1, bias=False)
-
+        
+    def weight_init(self, mean, std):
+        for m in self._modules:
+            normal_init(self._modules[m], mean, std)
     def forward(self, x_in):
         
         x = torch.relu(self.encoder_bn1(self.encoder_fc1(x_in)))
