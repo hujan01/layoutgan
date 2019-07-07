@@ -137,11 +137,11 @@ class Discriminator(nn.Module):
         self.feature_size = geo_num + cls_num
 
         # Encode
-        self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2, bias=False)
+        self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2,)
         self.encoder_bn1 = nn.BatchNorm1d(num_elements)  
-        self.encoder_fc2 = nn.Linear(self.feature_size*2, self.feature_size*2*2, bias=False)
+        self.encoder_fc2 = nn.Linear(self.feature_size*2, self.feature_size*2*2)
         self.encoder_bn2 = nn.BatchNorm1d(num_elements)
-        self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2,bias=False)
+        self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
 
         # relation
         self.attention_1 = Attention(self.feature_size*2*2, 1, generate=False)
@@ -153,8 +153,8 @@ class Discriminator(nn.Module):
         self.g = nn.MaxPool1d(kernel_size=num_elements)
 
         # Decode
-        self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2, bias=False)
-        self.decoder_fc5 = nn.Linear(self.feature_size*2, 1, bias=False)
+        self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2)
+        self.decoder_fc5 = nn.Linear(self.feature_size*2, 1)
         
     def weight_init(self, mean, std):
         for m in self._modules:

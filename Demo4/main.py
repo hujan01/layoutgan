@@ -113,6 +113,10 @@ def main():
     loss_hist['G_losses'] = []
     loss_hist['per_epoch_times'] = []
     loss_hist['total_times'] = []
+
+    result_path = 'result_image'
+    if not os.path.isdir(result_path):
+        os.mkdir(result_path)
     # 开始训练
     print('*****************************')
     print('start train!!!')
@@ -171,6 +175,9 @@ def main():
             z = torch.cat((z_cls, z_geo), 2).to(device)
 
             fake_images_g = gen(z) #生成fake图像
+            if batch_idx == 1:
+                generated_images = points_to_image(fake_images_g[:64, :, :]).view(-1, 1, 28, 28)
+                save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1), nrow=8)           
             D_out = dis(fake_images_g) #判断fake图像
 
             g_loss = real_loss(D_out, device) 
@@ -182,9 +189,7 @@ def main():
         per_epoch_time = epoch_end_time - epoch_start_time
         print("[{}/{}] --time: {:.2f}, d_loss: {:.6f}, g_loss: {:.6f}".format(epoch+1, \
                                                                             num_epochs, per_epoch_time, d_loss, g_loss))
-        result_path = 'result_image'
-        if not os.path.isdir(result_path):
-            os.mkdir(result_path)
+
         #测试部分
         # test_samples = 64
         # #z_cls = torch.FloatTensor(test_samples, element_num, cls_num).uniform_(0, 1) #均匀分布
@@ -192,9 +197,6 @@ def main():
         # z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.15) #正态分布
         # z = torch.cat((z_cls, z_geo), 2).to(device)
 
-        # generated_images = gen(z)
-        # generated_images = points_to_image(generated_images).view(-1, 1, 28, 28)
-        # save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=8)
         loss_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
         loss_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
         loss_hist['per_epoch_times'].append(per_epoch_time)
