@@ -139,9 +139,13 @@ def main():
 
             # 随机初始化类别和位置信息
             z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5) #正态分布
+            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.25) #正态分布
             z = torch.cat((z_cls, z_geo), 2).to(device)
-            
+            if batch_idx == 1:
+                imgs = z[:64, :, :]
+                real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
+                save_image(real_imgs, 'initial_img.png', nrow=8)
+
             fake_images_d = gen(z) #生成fake图像
             D_fake = dis(fake_images_d) #判断fake图像
             d_fake_loss = fake_loss(D_fake, device) #计算fake图像损失
@@ -158,7 +162,7 @@ def main():
             g_optimizer.zero_grad()
             # 随机初始化
             z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1)
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5)
+            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.25)
             z = torch.cat((z_cls, z_geo), 2).to(device)
 
             fake_images_g = gen(z) #生成fake图像
@@ -179,7 +183,7 @@ def main():
         #测试部分
         test_samples = 64
         z_cls = torch.FloatTensor(test_samples, element_num, cls_num).uniform_(0, 1) #均匀分布
-        z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.5) #正态分布
+        z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.25) #正态分布
         z = torch.cat((z_cls, z_geo), 2).to(device)
 
         generated_images = gen(z)
