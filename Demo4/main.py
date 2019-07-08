@@ -28,8 +28,8 @@ def fake_loss(D_out, device):
     #计算fake图像损失
     batch_size = D_out.size(0)
     labels = torch.zeros(batch_size).to(device) 
-    #crit = nn.BCELoss()
-    crit = nn.BCEWithLogitsLoss()
+    crit = nn.BCELoss()
+    #crit = nn.BCEWithLogitsLoss()
     assert (D_out.data.cpu().numpy().all() >= 0. and D_out.data.cpu().numpy().all() <= 1.)
     loss = crit(D_out.squeeze(), labels.squeeze())
     return loss
@@ -144,8 +144,8 @@ def main():
             d_real_loss = real_loss(D_real, device)
 
             # 随机初始化类别和位置信息
-            z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
-            #z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))#类别都是1
+            #z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
+            z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))#类别都是1
             z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15) #正态分布
             z = torch.cat((z_cls, z_geo), 2).to(device)
             """ 初始位置分布 """
