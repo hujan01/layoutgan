@@ -16,7 +16,6 @@ import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 
 
-
 class Attention(nn.Module):
     """ attention model """
     def __init__(self, in_channels, out_channels=None, dimension=1, sub_sample=False, bn=True, generate=True):
@@ -153,7 +152,8 @@ class Discriminator(nn.Module):
             nn.Linear(self.feature_size*2*2, self.feature_size*2),
             nn.ReLU(True),
             nn.Linear(self.feature_size*2, 1) 
-        )    
+        )
+            
     def forward(self, x_in):
         x = self.encoder(x_in)
         x = x.permute(0, 2, 1).contiguous()

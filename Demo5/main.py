@@ -10,10 +10,9 @@ from torch.autograd import Variable
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torchvision.utils import save_image
-
+import torchvision.utils as vutils
 from dataset import MNISTLayoutDataset
-import model
+import model, wmodel
 def points_to_image(points):
     """ 坐标点转成像素图 """
     batch_size = points.size(0)
@@ -23,13 +22,14 @@ def points_to_image(points):
         image = points[b]  #第一张图片
         for point in image:
             if point[0] > 0: #看概率是否大于阈值
-                x, y = int(point[1]*28), int(point[2]*28)
+                x, y = int(point[1]), int(point[2])
                 x, y = min(x, 27), min(y, 27)
                 canvas[x, y] = 255
         images.append(canvas)
     images = np.asarray(images)
     images_tensor = torch.from_numpy(images)
     return images_tensor
+    
 def normal_init(m, mean, std):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -62,8 +62,10 @@ def main():
 
     # 加载模型
     print("load model")
-    gen = model.Generator(opt.element_num, opt.geo_num, opt.cls_num).to(device)
-    dis = model.Discriminator(opt.batch_size, opt.geo_num, opt.cls_num, opt.element_num).to(device)
+    #gen = model.Generator(opt.element_num, opt.geo_num, opt.cls_num).to(device)
+    gen = wmodel.Generator(opt.element_num, opt.geo_num, opt.cls_num).to(device)
+    dis = wmodel.Discriminator(opt.batch_size).to(device)
+    #dis = model.Discriminator(opt.batch_size, opt.geo_num, opt.cls_num, opt.element_num).to(device)
     #初始化
     for layers in gen.modules():
         normal_init(layers, 0.0, 0.02)
@@ -89,6 +91,8 @@ def main():
     gen.train()
     dis.train()
 
+    if not os.path.isdir(opt.result):
+        os.mkdir(opt.result)
     # 开始训练
     print('#######################################################')
     print('start train!!!')
@@ -155,12 +159,13 @@ def main():
                     errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
             
             if gen_iterations % 500 == 0:
-                real_images = points_to_image(real_images)
+                real_images = points_to_image(real_images).view(-1, 1, 28, 28)
                 vutils.save_image(real_images, '{0}/real_samples.png'.format(opt.result))
 
                 fake = gen(Variable(fixed_z, volatile=True))
-                fake_images = points_to_image(fake)
-                vutils.save_image(fake_images, '{0}/fake_samples_{1}.png'.format(opt.result, gen_iterations))
+                fake[:, :, 1:] *= 28
+                fake_images = points_to_image(fake).view(-1, 1, 28, 28)
+                vutils.save_image(fake_images, '{0}/fake_samples_{1}.png'.format(opt.result, gen_iterations), nrow=8)
     print('###########################################################')
 
 if __name__ == '__main__':
@@ -178,7 +183,7 @@ if __name__ == '__main__':
     parser.add_argument('--element-num', type=int, default=128)
     parser.add_argument('--cls-num', type=int, default=1)
     parser.add_argument('--geo-num', type=int, default=2)
-    parser.add_argument('--num-epochs', type=int, default=10)
+    parser.add_argument('--num-epochs', type=int, default=100)
     parser.add_argument('--result', type=str, default='result_images')
 
     opt = parser.parse_args()
