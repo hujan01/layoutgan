@@ -25,8 +25,8 @@ class Attention(nn.Module):
         self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0) #U
         self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),
                                  nn.BatchNorm1d(in_channels))
-        nn.init.constant(self.W[1].weight, 0) #这里不对W的权重进行更新
-        nn.init.constant(self.W[1].bias, 0)
+        nn.init.constant_(self.W[1].weight, 0) 
+        nn.init.constant_(self.W[1].bias, 0)
 
         self.theta = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
         self.phi = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
