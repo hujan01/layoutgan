@@ -20,7 +20,7 @@ class Attention(nn.Module):
         super(Attention, self).__init__()
         if out_channels is None:
             self.out_channels = in_channels//2 if in_channels>1 else 1
-        self.out_channels = out_channels
+        #self.out_channels = out_channels
         self.generate = generate
         self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0) #U
         self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),
@@ -72,10 +72,10 @@ class Generator(nn.Module):
         self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
 
         #stacked relation 
-        self.attention_1 = Attention(num_elements, 1)
-        self.attention_2 = Attention(num_elements, 1)
-        self.attention_3 = Attention(num_elements, 1)
-        self.attention_4 = Attention(num_elements, 1)
+        self.attention_1 = Attention(self.feature_size*2*2)
+        self.attention_2 = Attention(self.feature_size*2*2)
+        self.attention_3 = Attention(self.feature_size*2*2)
+        self.attention_4 = Attention(self.feature_size*2*2)
 
         #Decoder
         self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2)
@@ -92,12 +92,12 @@ class Generator(nn.Module):
         x = torch.relu(self.encoder_bn2(self.encoder_fc2(x)))
         x = torch.sigmoid(self.encoder_fc3(x))
 
-        #x = x.permute(0, 2, 1).contiguous()
+        x = x.permute(0, 2, 1).contiguous()
         x = self.attention_1(x)
         x = self.attention_2(x)
         x = self.attention_3(x)
         x = self.attention_4(x)
-        #x = x.permute(0, 2, 1).contiguous() #维度变换后，使用该函数，方可view对维度进行变形
+        x = x.permute(0, 2, 1).contiguous() #维度变换后，使用该函数，方可view对维度进行变形
 
         out = torch.relu(self.decoder_bn4(self.decoder_fc4(x)))
         out = torch.relu(self.decoder_fc5(out))

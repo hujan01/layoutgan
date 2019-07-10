@@ -1,6 +1,7 @@
 import argparse
 import os
 import time
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,13 +71,19 @@ def main():
     element_num = 128
     cls_num = 1  
     geo_num = 2
-    batch_size = 256
+    batch_size = 128
     lr = 0.0002
-    num_epochs = 10
+    num_epochs = 100
 
     #优化器参数
-    beta1 = 0.6
+    beta1 = 0.5
     beta2 = 0.999
+    
+    #设置随机数种子
+    manualSeed = random.randint(1, 10000) 
+    print("Random Seed: ", manualSeed)
+    random.seed(manualSeed)
+    torch.manual_seed(manualSeed)
 
     # 选择运行环境
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -85,7 +92,7 @@ def main():
     # 加载数据集
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])
+        #transforms.Normalize(mean=[0.5], std=[0.5])
     ])
     _ = datasets.MNIST(root='data', train=True, download=True, transform=transforms)
     train_data = MNISTLayoutDataset('data')
@@ -113,6 +120,10 @@ def main():
     loss_hist['per_epoch_times'] = []
     loss_hist['total_times'] = []
 
+    z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))#类别都是1
+    z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15) #正态分布
+    fixed_z = torch.cat((z_cls, z_geo), 2).to(device)
+
     # 开始训练
     print('*****************************')
     print('start train!!!')
@@ -124,9 +135,9 @@ def main():
         for batch_idx, real_images in enumerate(train_loader, 1):
             #输出真实图像，观察提取像素点效果,这里只显示第一个批次
             if batch_idx == 1:
-                imgs = real_images[:64, :, :]
+                imgs = real_images[:16, :, :]
                 real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
-                save_image(real_imgs, 'real_img.png', nrow=8)
+                save_image(real_imgs, 'real_img.png', nrow=4)
 
             real_images = real_images.to(device) 
             batch_size = real_images.size(0)
@@ -139,7 +150,7 @@ def main():
 
             # 随机初始化类别和位置信息
             z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5) #正态分布
+            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15) #正态分布
             z = torch.cat((z_cls, z_geo), 2).to(device)
             
             fake_images_d = gen(z) #生成fake图像
@@ -154,11 +165,11 @@ def main():
             d_optimizer.step()
             D_losses.append(d_loss.item()) #一个epoch中的损失
 
-            # 训练生成器
+
             g_optimizer.zero_grad()
             # 随机初始化
             z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1)
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5)
+            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15)
             z = torch.cat((z_cls, z_geo), 2).to(device)
 
             fake_images_g = gen(z) #生成fake图像
@@ -177,14 +188,10 @@ def main():
         result_path = 'result_image'
         if not os.path.isdir(result_path):
             os.mkdir(result_path)
-        test_samples = 64
-        z_cls = torch.FloatTensor(test_samples, element_num, cls_num).uniform_(0, 1) #均匀分布
-        z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.5) #正态分布
-        z = torch.cat((z_cls, z_geo), 2).to(device)
 
-        generated_images = gen(z)
-        generated_images = points_to_image(generated_images).view(-1, 1, 28, 28)
-        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=8)
+        generated_images = gen(fixed_z)
+        generated_images = points_to_image(generated_images[:16, :, :]).view(-1, 1, 28, 28)
+        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=4)
 
         loss_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
         loss_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
