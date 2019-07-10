@@ -101,7 +101,7 @@ def main():
     # 加载模型
     print("load model")
     gen = model.Generator(element_num, geo_num, cls_num).to(device)
-    dis = model.Discriminator(batch_size).to(device)
+    dis = model.RelationDiscriminator(batch_size, geo_num, cls_num, element_num).to(device)
 
     # 定义优化器
     print("Initialize optimizers")

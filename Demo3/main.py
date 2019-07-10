@@ -1,6 +1,7 @@
 import argparse
 import os
 import time
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,31 +10,18 @@ from torch.autograd import Variable
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+<<<<<<< HEAD
+import torchvision.utils as vutils
+from dataset import MNISTLayoutDataset
+import model, wmodel
+=======
 from torchvision.utils import save_image
 
 from dataset import MNISTLayoutDataset
 import model
-
-def real_loss(D_out, device):
-    #计算real图像损失
-    batch_size = D_out.size(0)
-    labels = torch.ones(batch_size).to(device)
-    crit =nn.BCEWithLogitsLoss()
-    assert (D_out.data.cpu().numpy().all() >= 0. and D_out.data.cpu().numpy().all() <= 1.)
-    loss = crit(D_out.squeeze(), labels.squeeze())
-    return loss
-
-def fake_loss(D_out, device):
-    #计算fake图像损失
-    batch_size = D_out.size(0)
-    labels = torch.zeros(batch_size).to(device) 
-    crit = nn.BCEWithLogitsLoss()
-    assert (D_out.data.cpu().numpy().all() >= 0. and D_out.data.cpu().numpy().all() <= 1.)
-    loss = crit(D_out.squeeze(), labels.squeeze())
-    return loss
-
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
 def points_to_image(points):
-    """ 绘制图像 """
+    """ 坐标点转成像素图 """
     batch_size = points.size(0)
     images = []
     for b in range(batch_size):
@@ -41,164 +29,198 @@ def points_to_image(points):
         image = points[b]  #第一张图片
         for point in image:
             if point[0] > 0: #看概率是否大于阈值
+<<<<<<< HEAD
+                x, y = int(point[1]), int(point[2])
+=======
                 x, y = int(point[1]*28), int(point[2]*28)
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
                 x, y = min(x, 27), min(y, 27)
                 canvas[x, y] = 255
         images.append(canvas)
     images = np.asarray(images)
     images_tensor = torch.from_numpy(images)
     return images_tensor
-
-def show_lossHist(hist, path=None):
-    """ 损失优化结果 """
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    fname = 'loss_hist.png'
-    x = range(len(hist['D_losses'])) #x轴
-    y1 = hist['D_losses']
-    y2 = hist['G_losses']
-
-    plt.plot(x, y1, label='D_loss')
-    plt.plot(x, y2, label='G_loss')
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-
-    plt.savefig(os.path.join(path, fname))
+<<<<<<< HEAD
     
+=======
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
+def normal_init(m, mean, std):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        m.weight.data.normal_(mean, std)
+    elif classname.find('BatchNorm') != -1:
+        m.weight.data.normal_(mean, std)
+        m.bias.data.fill_(0)
+    elif classname.find('Linear') != -1:
+        m.weight.data.normal_(mean, std)
+        m.bias.data.fill_(0)
+
 def main():
-     # 设定参数
-    element_num = 128
-    cls_num = 1  
-    geo_num = 2
-    batch_size = 256
-    lr = 0.002
-    num_epochs = 10
-
-    #优化器参数
-    beta1 = 0.5
-    beta2 = 0.999
-
     # 选择运行环境
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('Using device:', device)
 
+    #设置随机数种子
+    opt.manualSeed = random.randint(1, 10000) 
+    print("Random Seed: ", opt.manualSeed)
+    random.seed(opt.manualSeed)
+    torch.manual_seed(opt.manualSeed)
+
     # 加载数据集
     transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])
+        transforms.ToTensor()
     ])
-    _ = datasets.MNIST(root='data', train=True, download=True, transform=transforms)
+    _ = datasets.MNIST(root='data', train=True, download=True, transform=None)
     train_data = MNISTLayoutDataset('data')
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    train_loader = DataLoader(train_data, batch_size=opt.batch_size, shuffle=True)
 
     # 加载模型
     print("load model")
-    gen = model.Generator(element_num, geo_num, cls_num).to(device)
-    dis = model.Discriminator(batch_size).to(device)
+<<<<<<< HEAD
+    #gen = model.Generator(opt.element_num, opt.geo_num, opt.cls_num).to(device)
+    gen = wmodel.Generator(opt.element_num, opt.geo_num, opt.cls_num).to(device)
+    dis = wmodel.Discriminator(opt.batch_size).to(device)
+    #dis = model.Discriminator(opt.batch_size, opt.geo_num, opt.cls_num, opt.element_num).to(device)
+=======
+    gen = model.Generator(opt.element_num, opt.geo_num, opt.cls_num).to(device)
+    dis = model.Discriminator(opt.batch_size, opt.geo_num, opt.cls_num, opt.element_num).to(device)
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
+    #初始化
+    for layers in gen.modules():
+        normal_init(layers, 0.0, 0.02)
+    for layers in dis.modules():
+        normal_init(layers, 0.0, 0.02)
+
+    z_cls = torch.FloatTensor(torch.ones(opt.batch_size, opt.element_num, opt.cls_num))#类别都是1
+    z_geo = torch.FloatTensor(opt.batch_size, opt.element_num, opt.geo_num).normal_(0.5, 0.15) #正态分布
+    fixed_z = torch.cat((z_cls, z_geo), 2).to(device)
+
+    one = torch.FloatTensor([1])
+    mone = one * -1
+    one, mone = one.to(device), mone.to(device)
 
     # 定义优化器
     print("Initialize optimizers")
-    g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
-    #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr/10, (beta1, beta2))
-    #d_optimizer = optim.SGD(dis.parameters(), lr/10)
+    #g_optimizer = optim.Adam(gen.parameters(), opt.lrG, (opt.beta1, 0.9))
+    #d_optimizer = optim.Adam(dis.parameters(), opt.lrD, (opt.beta1, 0.9))
+    g_optimizer = optim.RMSprop(dis.parameters(), lr = opt.lrD)
+    d_optimizer = optim.RMSprop(gen.parameters(), lr = opt.lrG)
 
     # 设置为训练模式
     gen.train()
     dis.train()
 
-    loss_hist = {}
-    loss_hist['D_losses'] = []
-    loss_hist['G_losses'] = []
-    loss_hist['per_epoch_times'] = []
-    loss_hist['total_times'] = []
+<<<<<<< HEAD
+    if not os.path.isdir(opt.result):
+        os.mkdir(opt.result)
+=======
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
     # 开始训练
-    print('*****************************')
+    print('#######################################################')
     print('start train!!!')
     start_time = time.time()
-    for epoch in range(num_epochs):
-        scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=2, gamma=0.1)
-        D_losses, G_losses = [], []
+    gen_iterations = 0 #生成器迭代次数
+    for epoch in range(opt.num_epochs):
         epoch_start_time = time.time()
-        for batch_idx, real_images in enumerate(train_loader, 1):
-            
-            #输出真实图像，观察提取像素点效果,这里只显示第一个批次中的9张
-            if batch_idx == 1:
-                imgs = real_images[:9, :, :]
-                real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
-                save_image(real_imgs, 'real_img.png', nrow=3)
+        data_iter = iter(train_loader)
+        i = 0
+        while i < len(train_loader):
+        
+            for p in dis.parameters():
+                p.requires_grad = True
 
-            real_images = real_images.to(device) 
-            batch_size = real_images.size(0)
-            # 训练判别器
-            d_optimizer.zero_grad()
+            if gen_iterations<25 or gen_iterations%500 == 0:
+                Diters = 100
+            else:
+                Diters = 5 #每迭代5次判别器，迭代一次生成器
 
-            real_images = Variable(real_images)
-            D_real = dis(real_images) #判断真实图像
-            d_real_loss = real_loss(D_real, device) #计算真实图像损失
+            j = 0
+            while j<Diters and i<len(train_loader):
+                j += 1
+                for p in dis.parameters():
+                    p.data.clamp_(opt.clamp_lower, opt.clamp_upper)
 
-            # 随机初始化类别和位置信息
-            z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5) #正态分布
+                i += 1
+                data = data_iter.next() #64, 128, 3
+                dis.zero_grad()
+                #用real训练
+                real_images = data
+                real_images = real_images.to(device)
+                real_images = Variable(real_images) 
+                batch_size = real_images.size(0)
+
+                errD_real = dis(real_images)
+                errD_real.backward(one)
+                # 用fake训练
+                z_cls = torch.FloatTensor(torch.ones(opt.batch_size, opt.element_num, opt.cls_num))#类别都是1
+                z_geo = torch.FloatTensor(opt.batch_size, opt.element_num, opt.geo_num).normal_(0.5, 0.15) #正态分布
+                z = torch.cat((z_cls, z_geo), 2).to(device)
+                z_v = Variable(z, volatile = True)
+                fake_images_d = Variable(gen(z_v).data)
+                errD_fake = dis(fake_images_d)
+                errD_fake.backward(mone)
+                errD = errD_real - errD_fake
+                d_optimizer.step()
+
+            #训练生成器
+            for p in dis.parameters():
+                p.requires_grad = False
+
+            gen.zero_grad()
+            z_cls = torch.FloatTensor(torch.ones(opt.batch_size, opt.element_num, opt.cls_num))#类别都是1
+            z_geo = torch.FloatTensor(opt.batch_size, opt.element_num, opt.geo_num).normal_(0.5, 0.15) #正态分布
             z = torch.cat((z_cls, z_geo), 2).to(device)
-            
-            fake_images_d = gen(z) #生成fake图像
-            D_fake = dis(fake_images_d) #判断fake图像
-            d_fake_loss = fake_loss(D_fake, device) #计算fake图像损失
-
-            # Total loss
-            d_loss = d_real_loss + d_fake_loss
-
-            #反向传播，迭代参数
-            d_loss.backward()
-            d_optimizer.step()
-            D_losses.append(d_loss.item()) #一个epoch中的损失
-
-            # 训练生成器
-            g_optimizer.zero_grad()
-            # 随机初始化
-            z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1)
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.5)
-            z = torch.cat((z_cls, z_geo), 2).to(device)
-
-            fake_images_g = gen(z) #生成fake图像
-            D_out = dis(fake_images_g) #判断fake图像
-
-            g_loss = real_loss(D_out, device) 
-            g_loss.backward()
+            fake_images_g = gen(z)
+            errG = dis(fake_images_g)
+            errG.backward(one)
             g_optimizer.step()
-            G_losses.append(g_loss.item())#一个epoch中的损失
+            gen_iterations += 1
 
-        epoch_end_time = time.time()
-        per_epoch_time = epoch_end_time - epoch_start_time
-        print("[{}/{}] --time: {:.2f}, d_loss: {:.6f}, g_loss: {:.6f}".format(epoch+1, \
-                                                                            num_epochs, per_epoch_time, d_loss, g_loss))
-        result_path = 'result_image'
-        if not os.path.isdir(result_path):
-            os.mkdir(result_path)
-        test_samples = 9
-        z_cls = torch.FloatTensor(test_samples, element_num, cls_num).uniform_(0, 1) #均匀分布
-        z_geo = torch.FloatTensor(test_samples, element_num, geo_num).normal_(0.5, 0.5) #正态分布
-        z = torch.cat((z_cls, z_geo), 2).to(device)
+            print('[%d/%d][%d/%d][%d] Loss_D: %f Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
+                % (epoch, opt.num_epochs, i, len(train_data), gen_iterations,\
+                    errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
+            
+            if gen_iterations % 500 == 0:
+<<<<<<< HEAD
+                real_images = points_to_image(real_images).view(-1, 1, 28, 28)
+                vutils.save_image(real_images, '{0}/real_samples.png'.format(opt.result))
 
-        generated_images = gen(z)
-        generated_images = points_to_image(generated_images).view(-1, 1, 28, 28)
-        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=3)
+                fake = gen(Variable(fixed_z, volatile=True))
+                fake[:, :, 1:] *= 28
+                fake_images = points_to_image(fake).view(-1, 1, 28, 28)
+                vutils.save_image(fake_images, '{0}/fake_samples_{1}.png'.format(opt.result, gen_iterations), nrow=8)
+=======
+                real_images = points_to_image(real_images)
+                vutils.save_image(real_images, '{0}/real_samples.png'.format(opt.result))
 
-        loss_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
-        loss_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
-        loss_hist['per_epoch_times'].append(per_epoch_time)
-    
-    end_time = time.time()
-    total_time = end_time - start_time
-    loss_hist['total_times'].append(total_time)
-
-    print('avg per epoch time: {:.2f}, total {} epochs time: {:.2f}'.format(
-                                                                    torch.mean(torch.FloatTensor(loss_hist['per_epoch_times'])),\
-                                                                    num_epochs, total_time))
-    show_lossHist(loss_hist, path='train_loss_image')
-    print("finish train!!!")
-    print("*******************************")
+                fake = gen(Variable(fixed_z, volatile=True))
+                fake_images = points_to_image(fake)
+                vutils.save_image(fake_images, '{0}/fake_samples_{1}.png'.format(opt.result, gen_iterations))
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
+    print('###########################################################')
 
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--batch-size', type=int, default=64, help='input batch size')
+    parser.add_argument('--lrD', type=float, default=0.00005, help='learning rate for Critic, default=0.00005')
+    parser.add_argument('--lrG', type=float, default=0.00005, help='learning rate for Generator, default=0.00005')
+    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
+    parser.add_argument('--cuda'  , action='store_true', help='enables cuda')
+    parser.add_argument('--ngpu'  , type=int, default=1, help='number of GPUs to use')
+    parser.add_argument('--clamp_lower', type=float, default=-0.01)
+    parser.add_argument('--clamp_upper', type=float, default=0.01)
+    parser.add_argument('--element-num', type=int, default=128)
+    parser.add_argument('--cls-num', type=int, default=1)
+    parser.add_argument('--geo-num', type=int, default=2)
+<<<<<<< HEAD
+    parser.add_argument('--num-epochs', type=int, default=100)
+=======
+    parser.add_argument('--num-epochs', type=int, default=10)
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
+    parser.add_argument('--result', type=str, default='result_images')
+
+    opt = parser.parse_args()
+    print(opt)
     main()

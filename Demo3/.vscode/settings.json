@@ -1,0 +1,7 @@
+{
+<<<<<<< HEAD
+    "python.pythonPath": "/home/hj/miniconda3/envs/pytorch/bin/python"
+=======
+    "python.pythonPath": "D:\\software\\anaconda3\\envs\\my_pytorch\\python.exe"
+>>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
+}
