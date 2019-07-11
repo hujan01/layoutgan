@@ -77,7 +77,7 @@ def main():
 
     #优化器参数
     beta1 = 0.5
-    beta2 = 0.999
+    beta2 = 0.9996
     
     #设置随机数种子
     manualSeed = random.randint(1, 10000) 
@@ -92,7 +92,6 @@ def main():
     # 加载数据集
     transform = transforms.Compose([
         transforms.ToTensor(),
-        #transforms.Normalize(mean=[0.5], std=[0.5])
     ])
     _ = datasets.MNIST(root='data', train=True, download=True, transform=transforms)
     train_data = MNISTLayoutDataset('data')
@@ -102,12 +101,13 @@ def main():
     print("load model")
     gen = model.Generator(element_num, geo_num, cls_num).to(device)
     dis = model.RelationDiscriminator(batch_size, geo_num, cls_num, element_num).to(device)
+    #dis = model.WifeDiscriminator(batch_size).to(device)    
 
     # 定义优化器
     print("Initialize optimizers")
     g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
     #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr/10, (beta1, beta2))
+    d_optimizer = optim.Adam(dis.parameters(), lr, (beta1, beta2))
     #d_optimizer = optim.SGD(dis.parameters(), lr/10)
 
     # 设置为训练模式
@@ -165,7 +165,6 @@ def main():
             d_optimizer.step()
             D_losses.append(d_loss.item()) #一个epoch中的损失
 
-
             g_optimizer.zero_grad()
             # 随机初始化
             z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1)
@@ -189,6 +188,7 @@ def main():
         if not os.path.isdir(result_path):
             os.mkdir(result_path)
 
+        #每次用相同的初始随机点进行测试
         generated_images = gen(fixed_z)
         generated_images = points_to_image(generated_images[:16, :, :]).view(-1, 1, 28, 28)
         save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=4)

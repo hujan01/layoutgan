@@ -64,7 +64,7 @@ class Attention(nn.Module):
         else:
             output=W_y
         return output
-
+    
 class Generator(nn.Module):
     """ 生成器 """
     def __init__(self, num_elements, geo_num, cls_num): 
@@ -83,9 +83,9 @@ class Generator(nn.Module):
 
         #stacked relation 
         self.attention_1 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
-        self.attention_2 = Attention(self.feature_size*2*2, self.feature_size*2*2)
+        self.attention_2 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
         self.attention_3 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
-        self.attention_4 = Attention(self.feature_size*2*2, self.feature_size*2*2)
+        self.attention_4 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
 
         #Decoder
         self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2)
@@ -106,10 +106,12 @@ class Generator(nn.Module):
         x = self.activatation(self.encoder_fc3(x))
 
         x = x.permute(0, 2, 1).contiguous()
+        x_hat = x.clone()
         x = self.attention_1(x)
-        x = self.attention_2(x)
+        x = self.attention_2(x) + x_hat
+        x_hat = x.clone()
         x = self.attention_3(x)
-        x = self.attention_4(x)
+        x = self.attention_4(x) + x_hat
         x = x.permute(0, 2, 1).contiguous() #维度变换后，使用该函数，方可view对维度进行变形
 
         out = self.activatation(self.decoder_bn4(self.decoder_fc4(x)))
