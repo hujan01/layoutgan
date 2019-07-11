@@ -13,13 +13,8 @@ import torch.utils.data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
-from tensorboardX import SummaryWriter
 
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
 class Attention(nn.Module):
     """ attention model """
     def __init__(self, in_channels, out_channels=None, dimension=1, sub_sample=False, bn=True, generate=True):
@@ -86,17 +81,10 @@ class Generator(nn.Module):
 
         # Attention
         self.attention = nn.Sequential(
-<<<<<<< HEAD
-            Attention(num_elements, 1, generate=True),
-            Attention(num_elements, 1, generate=True),
-            Attention(num_elements, 1, generate=True),
-            Attention(num_elements, 1, generate=True)
-=======
             Attention(self.feature_size*2*2, 1, generate=True),
             Attention(self.feature_size*2*2, 1, generate=True),
             Attention(self.feature_size*2*2, 1, generate=True),
             Attention(self.feature_size*2*2, 1, generate=True)
->>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
         )   
         # Decoder
         self.decoder = nn.Sequential(
@@ -113,13 +101,9 @@ class Generator(nn.Module):
     def forward(self, x_in):
 
         x = self.encoder(x_in)
-<<<<<<< HEAD
-        x = self.attention(x)
-=======
         x = x.permute(0, 2, 1).contiguous()
         x = self.attention(x)
         x = x.permute(0, 2, 1).contiguous() #维度变换后，使用该函数，方可view对维度进行变形
->>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
         x = self.decoder(x)
         cls = torch.sigmoid(self.fc6(x))
         #cls = torch.nn.LeakyReLU(self.fc6(out))
@@ -153,17 +137,10 @@ class Discriminator(nn.Module):
 
         # attention
         self.attention = nn.Sequential(
-<<<<<<< HEAD
-            Attention(num_elements, 1, generate=False),
-            Attention(num_elements, 1, generate=False),
-            Attention(num_elements, 1, generate=False),
-            Attention(num_elements, 1, generate=False)
-=======
             Attention(self.feature_size*2*2, 1, generate=False),
             Attention(self.feature_size*2*2, 1, generate=False),
             Attention(self.feature_size*2*2, 1, generate=False),
             Attention(self.feature_size*2*2, 1, generate=False)
->>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
         )      
 
         #max-pooling 
@@ -174,16 +151,6 @@ class Discriminator(nn.Module):
             nn.Linear(self.feature_size*2*2, self.feature_size*2),
             nn.ReLU(True),
             nn.Linear(self.feature_size*2, 1) 
-<<<<<<< HEAD
-        )
-            
-    def forward(self, x_in):
-        x = self.encoder(x_in)
-        x = self.attention(x)
-        x = self.decoder(x)
-        x = x.mean(1)
-        return x.mean(0)
-=======
         )    
     def forward(self, x_in):
         x = self.encoder(x_in)
@@ -193,4 +160,3 @@ class Discriminator(nn.Module):
         x = self.decoder(x).view(-1, 1)
         x = x.mean(0)
         return x.view(1)
->>>>>>> 839a889a307cbdbb3f85f5e5980fca56e0cc8a54
