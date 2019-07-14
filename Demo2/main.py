@@ -19,7 +19,8 @@ def real_loss(D_out, device):
     #计算real图像损失
     batch_size = D_out.size(0)
     labels = torch.ones(batch_size).to(device)
-    crit =nn.BCEWithLogitsLoss()
+    #crit =nn.BCEWithLogitsLoss()
+    crit = nn.BCELoss()
     assert (D_out.data.cpu().numpy().all() >= 0. and D_out.data.cpu().numpy().all() <= 1.)
     loss = crit(D_out.squeeze(), labels.squeeze())
     return loss
@@ -28,7 +29,8 @@ def fake_loss(D_out, device):
     #计算fake图像损失
     batch_size = D_out.size(0)
     labels = torch.zeros(batch_size).to(device) 
-    crit = nn.BCEWithLogitsLoss()
+    #crit = nn.BCEWithLogitsLoss()
+    crit = nn.BCELoss()
     assert (D_out.data.cpu().numpy().all() >= 0. and D_out.data.cpu().numpy().all() <= 1.)
     loss = crit(D_out.squeeze(), labels.squeeze())
     return loss
@@ -71,13 +73,13 @@ def main():
     element_num = 128
     cls_num = 1  
     geo_num = 2
-    batch_size = 128
+    batch_size = 64
     lr = 0.0002
     num_epochs = 100
 
     #优化器参数
     beta1 = 0.5
-    beta2 = 0.9996
+    beta2 = 0.999
     
     #设置随机数种子
     manualSeed = random.randint(1, 10000) 
@@ -102,14 +104,15 @@ def main():
     gen = model.Generator(element_num, geo_num, cls_num).to(device)
     dis = model.RelationDiscriminator(batch_size, geo_num, cls_num, element_num).to(device)
     #dis = model.WifeDiscriminator(batch_size).to(device)    
-
+    gen.weight_init(0, 0.02)
+    dis.weight_init(0, 0.02)
     # 定义优化器
     print("Initialize optimizers")
     g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
     #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr, (beta1, beta2))
+    d_optimizer = optim.Adam(dis.parameters(), lr, (0.7, beta2))
     #d_optimizer = optim.SGD(dis.parameters(), lr/10)
-
+    
     # 设置为训练模式
     gen.train()
     dis.train()
@@ -123,7 +126,10 @@ def main():
     z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))#类别都是1
     z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15) #正态分布
     fixed_z = torch.cat((z_cls, z_geo), 2).to(device)
-
+    #初始位置分布
+    imgs = fixed_z[:16, :, :]
+    real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
+    save_image(real_imgs, 'inital_img.png', nrow=4)
     # 开始训练
     print('*****************************')
     print('start train!!!')
@@ -141,7 +147,7 @@ def main():
 
             real_images = real_images.to(device) 
             batch_size = real_images.size(0)
-            # 训练判别器
+            """ 训练判别器 """
             d_optimizer.zero_grad()
 
             real_images = Variable(real_images)
@@ -149,10 +155,11 @@ def main():
             d_real_loss = real_loss(D_real, device) #计算真实图像损失
 
             # 随机初始化类别和位置信息
-            z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
+            z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))
+            #z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1) #均匀分布
             z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15) #正态分布
             z = torch.cat((z_cls, z_geo), 2).to(device)
-            
+
             fake_images_d = gen(z) #生成fake图像
             D_fake = dis(fake_images_d) #判断fake图像
             d_fake_loss = fake_loss(D_fake, device) #计算fake图像损失
@@ -165,9 +172,12 @@ def main():
             d_optimizer.step()
             D_losses.append(d_loss.item()) #一个epoch中的损失
 
+
+            """ 训练生成器 """
             g_optimizer.zero_grad()
             # 随机初始化
-            z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1)
+            #z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1)
+            z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))
             z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15)
             z = torch.cat((z_cls, z_geo), 2).to(device)
 

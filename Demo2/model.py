@@ -26,7 +26,7 @@ class Attention(nn.Module):
         super(Attention, self).__init__()
         if out_channels is None:
             self.out_channels = in_channels//2 if in_channels>1 else 1
-        self.out_channels = out_channels
+        #self.out_channels = out_channels
         self.generate = generate #是否加入残差
         self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0) #U
         
@@ -82,10 +82,10 @@ class Generator(nn.Module):
         self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
 
         #stacked relation 
-        self.attention_1 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
-        self.attention_2 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
-        self.attention_3 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
-        self.attention_4 = Attention(self.feature_size*2*2, self.feature_size*2*2, generate=False)
+        self.attention_1 = Attention(self.feature_size*2*2, generate=False)
+        self.attention_2 = Attention(self.feature_size*2*2, generate=False)
+        self.attention_3 = Attention(self.feature_size*2*2, generate=False)
+        self.attention_4 = Attention(self.feature_size*2*2, generate=False)
 
         #Decoder
         self.decoder_fc4 = nn.Linear(self.feature_size*2*2, self.feature_size*2)
@@ -217,14 +217,14 @@ class RelationDiscriminator(nn.Module):
 
         # Encode
         self.activatation = nn.LeakyReLU(0.02)
-        self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2,)
+        self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2)
         self.encoder_bn1 = nn.BatchNorm1d(num_elements)  
         self.encoder_fc2 = nn.Linear(self.feature_size*2, self.feature_size*2*2)
         self.encoder_bn2 = nn.BatchNorm1d(num_elements)
         self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
 
         # relation
-        self.attention= Attention(self.feature_size*2*2,self.feature_size*2*2, generate=False)
+        self.attention= Attention(self.feature_size*2*2, generate=False)
         
         #max-pooling 用于进行全局
         self.g = nn.MaxPool1d(kernel_size=num_elements)
