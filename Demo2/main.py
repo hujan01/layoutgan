@@ -79,7 +79,7 @@ def main():
 
     #优化器参数
     beta1 = 0.5
-    beta2 = 0.999
+    beta2 = 0.9
     
     #设置随机数种子
     manualSeed = random.randint(1, 10000) 
@@ -110,7 +110,7 @@ def main():
     print("Initialize optimizers")
     g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
     #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr, (0.7, beta2))
+    d_optimizer = optim.Adam(dis.parameters(), lr, (beta1, beta2))
     #d_optimizer = optim.SGD(dis.parameters(), lr/10)
     
     # 设置为训练模式
@@ -127,9 +127,9 @@ def main():
     z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15) #正态分布
     fixed_z = torch.cat((z_cls, z_geo), 2).to(device)
     #初始位置分布
-    imgs = fixed_z[:16, :, :]
+    imgs = fixed_z[:64, :, :]
     real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
-    save_image(real_imgs, 'inital_img.png', nrow=4)
+    save_image(real_imgs, 'inital_img.png', nrow=8)
     # 开始训练
     print('*****************************')
     print('start train!!!')
@@ -141,9 +141,9 @@ def main():
         for batch_idx, real_images in enumerate(train_loader, 1):
             #输出真实图像，观察提取像素点效果,这里只显示第一个批次
             if batch_idx == 1:
-                imgs = real_images[:16, :, :]
+                imgs = real_images[:64, :, :]
                 real_imgs = points_to_image(imgs).view(-1, 1, 28, 28)
-                save_image(real_imgs, 'real_img.png', nrow=4)
+                save_image(real_imgs, 'real_img.png', nrow=8)
 
             real_images = real_images.to(device) 
             batch_size = real_images.size(0)
@@ -200,8 +200,8 @@ def main():
 
         #每次用相同的初始随机点进行测试
         generated_images = gen(fixed_z)
-        generated_images = points_to_image(generated_images[:16, :, :]).view(-1, 1, 28, 28)
-        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=4)
+        generated_images = points_to_image(generated_images[:64, :, :]).view(-1, 1, 28, 28)
+        save_image(generated_images, '{}/{}.png'.format(result_path, epoch+1, ), nrow=8)
 
         loss_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
         loss_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
