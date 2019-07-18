@@ -13,12 +13,13 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 
+from spectual_normalization import SpectralNorm
+
 def normal_init(m, mean, std):
     """ 初始化权重 """
     if isinstance(m, nn.Linear):
         m.weight.data.normal_(mean, std)
         m.bias.data.zero_()
-
 
 class Attention(nn.Module):
     """ conv1d 实现 """
@@ -29,14 +30,12 @@ class Attention(nn.Module):
         #self.out_channels = out_channels
         self.generate = generate #是否加入残差
         self.g = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0) #U
-        
         self.theta = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
         nn.init.normal_(self.theta.weight, 0, 0.02)
         self.phi = nn.Conv1d(in_channels, self.out_channels, kernel_size=1, stride=1, padding=0)
         nn.init.normal_(self.phi.weight, 0, 0.02)        
-        self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),
-                                 nn.BatchNorm1d(in_channels))
-
+        self.W = nn.Sequential(nn.Conv1d(self.out_channels, in_channels, kernel_size=1, stride=1, padding=0),\
+                           nn.BatchNorm1d(in_channels))
         nn.init.normal_(self.W[1].weight, 0, 0.02)
         nn.init.constant_(self.W[1].bias, 0)
         if sub_sample: #是否需要下采样
@@ -46,12 +45,13 @@ class Attention(nn.Module):
     def forward(self, x): 
         batch_size = x.size(0) #批次大小
         g_x = self.g(x).view(batch_size, self.out_channels, -1) 
+
         g_x = g_x.permute(0, 2, 1)
 
         theta_x = self.theta(x).view(batch_size, self.out_channels, -1)  
         theta_x = theta_x.permute(0, 2, 1)
         phi_x = self.phi(x).view(batch_size, self.out_channels, -1)
-        f = torch.matmul(theta_x, phi_x) #计算H 
+        f = torch.matmul(theta_x, phi_x) 
  
         N = f.size(-1)
         f_div_c =  f / N
@@ -74,7 +74,7 @@ class Generator(nn.Module):
         self.feature_size = geo_num + cls_num
 
         #Encoder
-        self.activatation = nn.LeakyReLU(0.02)
+        self.activatation = nn.LeakyReLU(0.2)
         self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2)
         self.encoder_bn1 = nn.BatchNorm1d(num_elements)  
         self.encoder_fc2 = nn.Linear(self.feature_size*2, self.feature_size*2*2)
@@ -216,17 +216,17 @@ class RelationDiscriminator(nn.Module):
         self.feature_size = geo_num + cls_num
 
         # Encode
-        self.activatation = nn.LeakyReLU(0.02)
+        self.activatation = nn.LeakyReLU(0.2)
         self.encoder_fc1 = nn.Linear(self.feature_size, self.feature_size*2)
         self.encoder_bn1 = nn.BatchNorm1d(num_elements)  
         self.encoder_fc2 = nn.Linear(self.feature_size*2, self.feature_size*2*2)
-        self.encoder_bn2 = nn.BatchNorm1d(num_elements)
-        self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
+        # self.encoder_bn2 = nn.BatchNorm1d(num_elements)
+        # self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
 
         # relation
         self.attention= Attention(self.feature_size*2*2, generate=False)
         
-        #max-pooling 用于进行全局
+        #max-pooling 用于进行全局 这里提取全局特征是不是对的？
         self.g = nn.MaxPool1d(kernel_size=num_elements)
 
         # Decode
@@ -239,15 +239,73 @@ class RelationDiscriminator(nn.Module):
 
     def forward(self, x_in):
         
+        #进行特征嵌入
         x = self.activatation(self.encoder_bn1(self.encoder_fc1(x_in)))
-        x = self.activatation(self.encoder_bn2(self.encoder_fc2(x)))
-        x = self.activatation(self.encoder_fc3(x))
+       # x = self.activatation(self.encoder_bn2(self.encoder_fc2(x)))
+        x = self.activatation(self.encoder_fc2(x))
 
+        #提取全局几何关系
         x = x.permute(0,2,1)
         x = self.attention(x)
 
+        #提取全局特征
         x = self.g(x).permute(0, 2, 1)
+
+        #MLP分类器
         x = self.activatation(self.decoder_fc4(x))
-        x = self.activatation(self.decoder_fc5(x))
+        x = self.decoder_fc5(x)
+        x = torch.sigmoid(x)
+        return x
+
+class RelationDiscriminator_SN(nn.Module):
+    """ relation_based """
+    def __init__(self, batch_size, geo_num, cls_num, num_elements):
+        super(RelationDiscriminator, self).__init__()
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.batch_size = batch_size
+        self.geo_num = geo_num
+        self.cls_num = cls_num
+        self.feature_size = geo_num + cls_num
+
+        # Encode
+        self.activatation = nn.LeakyReLU(0.2)
+        self.encoder_fc1 = SpectralNorm(nn.Linear(self.feature_size, self.feature_size*2))
+        self.encoder_bn1 = nn.BatchNorm1d(num_elements)  
+        self.encoder_fc2 = SpectralNorm(nn.Linear(self.feature_size*2, self.feature_size*2*2))
+        # self.encoder_bn2 = nn.BatchNorm1d(num_elements)
+        # self.encoder_fc3 = nn.Linear(self.feature_size*2*2, self.feature_size*2*2)
+
+        # relation
+        self.attention= SpectralNorm(Attention(self.feature_size*2*2, generate=False))
+        
+        #max-pooling 用于进行全局 这里提取全局特征是不是对的？
+        self.g = SpectralNorm(nn.MaxPool1d(kernel_size=num_elements))
+
+        # Decode
+        self.decoder_fc4 = SpectralNorm(nn.Linear(self.feature_size*2*2, self.feature_size*2))
+        self.decoder_fc5 = SpectralNorm(nn.Linear(self.feature_size*2, 1))
+        
+    def weight_init(self, mean, std):
+        for m in self._modules:
+            normal_init(self._modules[m], mean, std)
+
+    def forward(self, x_in):
+        
+        #进行特征嵌入
+        x = self.activatation(self.encoder_bn1(self.encoder_fc1(x_in)))
+       # x = self.activatation(self.encoder_bn2(self.encoder_fc2(x)))
+        x = self.activatation(self.encoder_fc2(x))
+
+        #提取全局几何关系
+        x = x.permute(0,2,1)
+        x = self.attention(x)
+
+        #提取全局特征
+        x = self.g(x).permute(0, 2, 1)
+
+        #MLP分类器
+        x = self.activatation(self.decoder_fc4(x))
+        x = self.decoder_fc5(x)
         x = torch.sigmoid(x)
         return x

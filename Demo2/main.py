@@ -78,8 +78,8 @@ def main():
     num_epochs = 100
 
     #优化器参数
-    beta1 = 0.5
-    beta2 = 0.9
+    beta1 = 0.55
+    beta2 = 0.999
     
     #设置随机数种子
     manualSeed = random.randint(1, 10000) 
@@ -110,7 +110,7 @@ def main():
     print("Initialize optimizers")
     g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
     #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr, (beta1, beta2))
+    d_optimizer = optim.Adam(dis.parameters(), lr/10, (beta1, beta2))
     #d_optimizer = optim.SGD(dis.parameters(), lr/10)
     
     # 设置为训练模式
@@ -135,7 +135,7 @@ def main():
     print('start train!!!')
     start_time = time.time()
     for epoch in range(num_epochs):
-        #scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=2, gamma=0.1)
+        scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=10, gamma=0.1)
         D_losses, G_losses = [], []
         epoch_start_time = time.time()
         for batch_idx, real_images in enumerate(train_loader, 1):

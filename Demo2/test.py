@@ -1,20 +1,32 @@
-import torch
+ 
 from torch import nn
-
-torch.manual_seed(2) #设置随机数种子
-input = torch.rand(3, 3) #均匀分布
-
-m = nn.Sigmoid()
-a = torch.Tensor([-1])
-print(m(a))
-print(torch.sigmoid(a))
-print(m(input))
-target = torch.FloatTensor([[0, 1, 1],
-                            [0, 0, 1],
-                            [1, 0, 1]])
-
-loss = nn.BCELoss()
-print(loss(input, target))
-
-loss1 = nn.BCEWithLogitsLoss()
-print(loss1(input, target))
+import torch
+from torch.nn import functional as F
+ 
+ 
+class TextNet(nn.Module):
+    def __init__(self, vocab_size, seq_len,embedding_len, num_classes=2):
+        super(TextNet, self).__init__()
+        self.seq_len=seq_len
+        self.vocab_size = vocab_size
+        self.embedding_len = embedding_len
+        self.word_embeddings = nn.Embedding(vocab_size, embedding_len)
+ 
+    def forward(self, x):
+        x = self.word_embeddings(x)
+        return x
+ 
+ 
+if __name__ == '__main__':
+    model = TextNet(vocab_size=5000, seq_len=600,embedding_len=2)
+    x=[[1,2,2,4]]
+    input = torch.autograd.Variable(torch.LongTensor(x))
+    o = model(input)
+    print(o)
+    print(o.size())
+ 
+    x = [[1, 3, 2, 4]]
+    input = torch.autograd.Variable(torch.LongTensor(x))
+    o = model(input)
+    print(o)
+    print(o.size())
