@@ -18,7 +18,8 @@ import model
 def real_loss(D_out, device):
     #计算real图像损失
     batch_size = D_out.size(0)
-    labels = torch.ones(batch_size).to(device)
+    #labels = torch.ones(batch_size).to(device)
+    labels = torch.full([batch_size],0.9).to(device)
     #crit =nn.BCEWithLogitsLoss()
     crit = nn.BCELoss()
     assert (D_out.data.cpu().numpy().all() >= 0. and D_out.data.cpu().numpy().all() <= 1.)
@@ -75,10 +76,10 @@ def main():
     geo_num = 2
     batch_size = 64
     lr = 0.0002
-    num_epochs = 100
+    num_epochs = 200
 
     #优化器参数
-    beta1 = 0.55
+    beta1 = 0.5
     beta2 = 0.999
     
     #设置随机数种子
@@ -110,7 +111,7 @@ def main():
     print("Initialize optimizers")
     g_optimizer = optim.Adam(gen.parameters(), lr, (beta1, beta2))
     #g_optimizer = optim.SGD(gen.parameters(), lr)
-    d_optimizer = optim.Adam(dis.parameters(), lr/10, (beta1, beta2))
+    d_optimizer = optim.Adam(dis.parameters(), lr, (beta1, beta2))
     #d_optimizer = optim.SGD(dis.parameters(), lr/10)
     
     # 设置为训练模式
@@ -135,7 +136,7 @@ def main():
     print('start train!!!')
     start_time = time.time()
     for epoch in range(num_epochs):
-        scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=10, gamma=0.1)
+        #scheduler = optim.lr_scheduler.StepLR(d_optimizer, step_size=2, gamma=0.1)
         D_losses, G_losses = [], []
         epoch_start_time = time.time()
         for batch_idx, real_images in enumerate(train_loader, 1):
@@ -172,27 +173,37 @@ def main():
             d_optimizer.step()
             D_losses.append(d_loss.item()) #一个epoch中的损失
 
-
-            """ 训练生成器 """
-            g_optimizer.zero_grad()
+            if batch_idx % 2 ==0:
+                """ 训练生成器 """
+                g_optimizer.zero_grad()
             # 随机初始化
             #z_cls = torch.FloatTensor(batch_size, element_num, cls_num).uniform_(0, 1)
-            z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))
-            z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15)
-            z = torch.cat((z_cls, z_geo), 2).to(device)
+                z_cls = torch.FloatTensor(torch.ones(batch_size, element_num, cls_num))
+                z_geo = torch.FloatTensor(batch_size, element_num, geo_num).normal_(0.5, 0.15)
+                z = torch.cat((z_cls, z_geo), 2).to(device)
 
-            fake_images_g = gen(z) #生成fake图像
-            D_out = dis(fake_images_g) #判断fake图像
+                fake_images_g = gen(z) #生成fake图像
+                D_out = dis(fake_images_g) #判断fake图像
 
-            g_loss = real_loss(D_out, device) 
-            g_loss.backward()
-            g_optimizer.step()
-            G_losses.append(g_loss.item())#一个epoch中的损失
+                g_loss = real_loss(D_out, device) 
+                g_loss.backward()
+                g_optimizer.step()
+                G_losses.append(g_loss.item())#一个epoch中的损失
 
         epoch_end_time = time.time()
         per_epoch_time = epoch_end_time - epoch_start_time
         print("[{}/{}] --time: {:.2f}, d_loss: {:.6f}, g_loss: {:.6f}".format(epoch+1, \
                                                                             num_epochs, per_epoch_time, d_loss, g_loss))
+        #保存模型
+        m_path = 'pam'
+        if not os.path.isdir(m_path):
+            os.mkdir(m_path)
+        path_dis = m_path + '/dis_{}.pth'.format(epoch+1)
+        path_gen = m_path + '/gen_{}.pth'.format(epoch+1)
+
+        torch.save(dis.state_dict(), path_dis)
+        torch.save(gen.state_dict(), path_gen)
+
         #测试部分
         result_path = 'result_image'
         if not os.path.isdir(result_path):

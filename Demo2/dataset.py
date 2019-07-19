@@ -1,7 +1,7 @@
 """ 预处理数据集 """
 import os 
 
-import cv2
+#import cv2
 import numpy as np
 import torch
 import torch.utils.data as data
